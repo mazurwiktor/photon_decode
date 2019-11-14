@@ -26,7 +26,7 @@ macro_rules! impl_decode {
                     self.$decode_func()
                 } else {
                     return Err(concat!(
-                        "Failed to decode",
+                        "Failed to decode ",
                         stringify!($type),
                         ", not enough bytes"
                     ));

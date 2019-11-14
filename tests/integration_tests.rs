@@ -275,3 +275,33 @@ fn test_response_message()
 	assert_eq!(decoded[0],  Message::Response(OperationResponse { code: 1, return_code: 0, debug_message: "None".to_owned(), parameters}));
 }
 
+#[test]
+fn test_xxx(){
+	use photon_decode::{Photon, Message};
+
+	let mut photon = Photon::new();
+    let photon_packet = vec![
+		0x00, 0x01, 			// PeerID
+		0x01,                   // CrcEnabled
+		0x00,                   // CommandCount
+		0x00, 0x00, 0x00, 0x01, // Timestamp
+		0x00, 0x00, 0x00, 0x01, // Challenge
+    ];
+	let messages = photon.try_decode(&photon_packet).unwrap_or_else(|err| {
+		panic!("{:?}", err);
+	});
+
+	for message in messages.iter() {
+		match message {
+			Message::Event(_) => {
+				// use event
+			},
+			Message::Request(_) => {
+				// use request
+			},
+			Message::Response(_) => {
+				// use response
+			}
+		}
+	}
+}
