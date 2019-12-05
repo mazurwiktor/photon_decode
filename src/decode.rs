@@ -4,10 +4,9 @@ use std::mem::size_of;
 
 use bytes::Buf;
 
+use crate::error::*;
 use crate::layout::*;
 
-pub type PhotonDecodeError = &'static str;
-pub type PhotonDecodeResult<T> = std::result::Result<T, PhotonDecodeError>;
 pub type PhotonCursor<'a> = Cursor<&'a [u8]>;
 
 pub trait Decode<T> {
@@ -25,11 +24,11 @@ macro_rules! impl_decode {
                 let v = if self.remaining() >= $bytes_to_consume {
                     self.$decode_func()
                 } else {
-                    return Err(concat!(
+                    return Err(PhotonDecodeError::from(concat!(
                         "Failed to decode ",
                         stringify!($type),
                         ", not enough bytes"
-                    ));
+                    )));
                 };
                 Ok(v)
             }
@@ -49,7 +48,9 @@ impl Decode<bool> for PhotonCursor<'_> {
         let v = if self.remaining() >= 1 {
             self.get_u8()
         } else {
-            return Err("Failed to decode bool, not enough bytes");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode bool, not enough bytes",
+            ));
         };
         Ok(v != 0)
     }
@@ -59,7 +60,9 @@ impl Decode<String> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<String> {
         let size: i16 = self.decode()?;
         if size < 0 {
-            return Err("Failed to decode String, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode String, unreasonable size",
+            ));
         }
 
         let mut local_buffer = vec![0; size as usize];
@@ -69,7 +72,9 @@ impl Decode<String> for PhotonCursor<'_> {
             }
         }
 
-        Err("Failed to decode String, not enough bytes")
+        Err(PhotonDecodeError::from(
+            "Failed to decode String, not enough bytes",
+        ))
     }
 }
 
@@ -77,7 +82,9 @@ impl Decode<Vec<String>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<String>> {
         let size: i16 = self.decode()?;
         if size < 0 {
-            return Err("Failed to decode String, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode String, unreasonable size",
+            ));
         }
         let mut value: Vec<String> = vec![];
         for _ in 0..size {
@@ -104,7 +111,9 @@ impl Decode<Vec<Value>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<Value>> {
         let size: i16 = self.decode()?;
         if size <= 0 {
-            return Err("Failed to decode Vec<Value>, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode Vec<Value>, unreasonable size",
+            ));
         }
         let type_code: u8 = self.decode()?;
 
@@ -127,7 +136,9 @@ impl Decode<HashMap<String, Value>> for PhotonCursor<'_> {
         let value_type_code: u8 = self.decode()?;
         let size: i16 = self.decode()?;
         if size <= 0 {
-            return Err("Failed to decode HashMap<String, Value>, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode HashMap<String, Value>, unreasonable size",
+            ));
         }
 
         let mut value: HashMap<String, Value> = HashMap::new();
@@ -157,7 +168,9 @@ impl Decode<HashMap<u8, Value>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<HashMap<u8, Value>> {
         let size: i16 = self.decode()?;
         if size <= 0 {
-            return Err("Failed to decode HashMap<u8, Value>, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode HashMap<u8, Value>, unreasonable size",
+            ));
         }
 
         let mut value: HashMap<u8, Value> = HashMap::new();
@@ -220,7 +233,9 @@ impl Decode<Vec<Box<Value>>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<Box<Value>>> {
         let size: i16 = self.decode()?;
         if size <= 0 {
-            return Err("Failed to decode Vec<Box<Value>>, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode Vec<Box<Value>>, unreasonable size",
+            ));
         }
         let mut value = vec![];
         for _ in 0..size {
@@ -239,7 +254,9 @@ impl Decode<Vec<bool>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<bool>> {
         let size: i16 = self.decode()?;
         if size <= 0 {
-            return Err("Failed to decode Vec<bool>, unreasonable size");
+            return Err(PhotonDecodeError::from(
+                "Failed to decode Vec<bool>, unreasonable size",
+            ));
         }
         let mut value = vec![];
         for _ in 0..size {
@@ -252,6 +269,7 @@ impl Decode<Vec<bool>> for PhotonCursor<'_> {
 impl TypedDecode for PhotonCursor<'_> {
     fn typed_decode(&mut self, type_code: u8) -> PhotonDecodeResult<Value> {
         match TypeCode::from(type_code) {
+            TypeCode::None => Ok(Value::None),
             TypeCode::Null => Ok(Value::None),
             TypeCode::Boolean => Ok(Value::Boolean(self.decode()?)),
             TypeCode::Byte => Ok(Value::Byte(self.decode()?)),
@@ -270,7 +288,10 @@ impl TypedDecode for PhotonCursor<'_> {
             TypeCode::BooleanArray => Ok(Value::BooleanArray(self.decode()?)),
             TypeCode::Array => Ok(Value::Array(self.decode()?)),
             TypeCode::ObjectArray => Ok(Value::ObjectArray(self.decode()?)),
-            _ => Err("Failed to decode Value, unknown type code"),
+            _ => Err(PhotonDecodeError::from(format!(
+                "Failed to decode Value, unknown type code ({:#X})",
+                type_code
+            ))),
         }
     }
 }
@@ -371,49 +392,50 @@ impl Decode<Command> for PhotonCursor<'_> {
 }
 
 pub enum TypeCode {
-    Unknown = 0,
-    Null = 42,
-    Dictionary = 68,
-    StringArray = 97,
-    Byte = 98,
-    Double = 100,
-    EventData = 101,
-    Float = 102,
-    Integer = 105,
-    Short = 107,
-    Long = 108,
-    BooleanArray = 110,
-    Boolean = 111,
-    OperationResponse = 112,
-    OperationRequest = 113,
-    String = 115,
-    ByteArray = 120,
-    Array = 121,
-    ObjectArray = 122,
+    None = 0x00,
+    Null = 0x2A,
+    Dictionary = 0x44,
+    StringArray = 0x61,
+    Byte = 0x62,
+    Double = 0x64,
+    EventData = 0x65,
+    Float = 0x66,
+    Integer = 0x69,
+    Short = 0x6B,
+    Long = 0x6C,
+    BooleanArray = 0x6E,
+    Boolean = 0x6F,
+    OperationResponse = 0x70,
+    OperationRequest = 0x71,
+    String = 0x73,
+    ByteArray = 0x78,
+    Array = 0x79,
+    ObjectArray = 0x7A,
+    Unknown,
 }
 
 impl From<u8> for TypeCode {
     fn from(v: u8) -> Self {
         match v {
-            0 => TypeCode::Unknown,
-            42 => TypeCode::Null,
-            68 => TypeCode::Dictionary,
-            97 => TypeCode::StringArray,
-            98 => TypeCode::Byte,
-            100 => TypeCode::Double,
-            101 => TypeCode::EventData,
-            102 => TypeCode::Float,
-            105 => TypeCode::Integer,
-            107 => TypeCode::Short,
-            108 => TypeCode::Long,
-            110 => TypeCode::BooleanArray,
-            111 => TypeCode::Boolean,
-            112 => TypeCode::OperationResponse,
-            113 => TypeCode::OperationRequest,
-            115 => TypeCode::String,
-            120 => TypeCode::ByteArray,
-            121 => TypeCode::Array,
-            122 => TypeCode::ObjectArray,
+            0x00 => TypeCode::None,
+            0x2A => TypeCode::Null,
+            0x44 => TypeCode::Dictionary,
+            0x61 => TypeCode::StringArray,
+            0x62 => TypeCode::Byte,
+            0x64 => TypeCode::Double,
+            0x65 => TypeCode::EventData,
+            0x66 => TypeCode::Float,
+            0x69 => TypeCode::Integer,
+            0x6B => TypeCode::Short,
+            0x6C => TypeCode::Long,
+            0x6E => TypeCode::BooleanArray,
+            0x6F => TypeCode::Boolean,
+            0x70 => TypeCode::OperationResponse,
+            0x71 => TypeCode::OperationRequest,
+            0x73 => TypeCode::String,
+            0x78 => TypeCode::ByteArray,
+            0x79 => TypeCode::Array,
+            0x7A => TypeCode::ObjectArray,
             _ => TypeCode::Unknown,
         }
     }

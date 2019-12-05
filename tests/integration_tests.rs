@@ -37,16 +37,16 @@ fn test_single_event_message()
 		0x74, 0x65, 0x73, 0x74, 0x31	//test1
 	];
 
-    let mut photon = photon_decode::Photon::new();
+	let mut photon = photon_decode::Photon::new();
 
-    let decoded = photon.decode(
-		&[&header[..], &photon_command[..], &message[..]].concat());
+	let mut decoded = photon.try_decode(
+		&[&header[..], &photon_command[..], &message[..]].concat()).expect("Shold works").into_iter();
+	let msg = decoded.next().expect("Shold contain one msg").expect("Should decode event");
 
-	assert!(decoded.len() == 1);
 	let parameters: Parameters =
 		[(0, Value::String("test1".to_owned()))]
     	.iter().cloned().collect();
-	assert_eq!(decoded[0], Message::Event(EventData{ code: 100,  parameters}));
+	assert_eq!(msg, Message::Event(EventData{ code: 100,  parameters}));
 }
 
 #[test]
@@ -276,7 +276,7 @@ fn test_response_message()
 }
 
 #[test]
-fn test_xxx(){
+fn test_example(){
 	use photon_decode::{Photon, Message};
 
 	let mut photon = Photon::new();
@@ -287,11 +287,8 @@ fn test_xxx(){
 		0x00, 0x00, 0x00, 0x01, // Timestamp
 		0x00, 0x00, 0x00, 0x01, // Challenge
     ];
-	let messages = photon.try_decode(&photon_packet).unwrap_or_else(|err| {
-		panic!("{:?}", err);
-	});
 
-	for message in messages.iter() {
+	for message in photon.decode(&photon_packet).iter() {
 		match message {
 			Message::Event(_) => {
 				// use event
