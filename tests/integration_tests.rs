@@ -268,8 +268,15 @@ fn test_response_message()
 	let parameters: Parameters =
 		[
 			(0x00, Value::Integer(418543976)),
-			(0x01, Value::String("@ISLAND@ef3794da-8f83-4340-bf52-68117a0672e4|WedrowyczJakub|637075378803183935|WedrowyczJakub".to_owned()))
-		
+			(0x01, Value::String("@ISLAND@ef3794da-8f83-4340-bf52-68117a0672e4|WedrowyczJakub|637075378803183935|WedrowyczJakub".to_owned())),
+			(0x02, Value::Array(vec![])),
+			(0x03, Value::Array(vec![])),
+			(0x04, Value::Array(vec![])),
+			(0x05, Value::ByteArray(vec![])),
+			(0x06, Value::Array(vec![Value::Array(vec![Value::Integer(4294967295)])])),
+			(0x07, Value::Array(vec![Value::Array(vec![Value::Integer(4294967295)])])),
+			(0x08, Value::ByteArray(vec![])),
+			(0xFD, Value::Short(166)),
 		]
     	.iter().cloned().collect();
 	assert_eq!(decoded[0],  Message::Response(OperationResponse { code: 1, return_code: 0, debug_message: "None".to_owned(), parameters}));
