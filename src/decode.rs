@@ -110,7 +110,7 @@ impl Decode<Vec<u8>> for PhotonCursor<'_> {
 impl Decode<Vec<Value>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<Value>> {
         let size: i16 = self.decode()?;
-        if size <= 0 {
+        if size < 0 {
             return Err(PhotonDecodeError::from(
                 "Failed to decode Vec<Value>, unreasonable size",
             ));
@@ -135,7 +135,7 @@ impl Decode<HashMap<String, Value>> for PhotonCursor<'_> {
         let key_type_code: u8 = self.decode()?;
         let value_type_code: u8 = self.decode()?;
         let size: i16 = self.decode()?;
-        if size <= 0 {
+        if size < 0 {
             return Err(PhotonDecodeError::from(
                 "Failed to decode HashMap<String, Value>, unreasonable size",
             ));
@@ -167,7 +167,7 @@ impl Decode<HashMap<String, Value>> for PhotonCursor<'_> {
 impl Decode<HashMap<u8, Value>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<HashMap<u8, Value>> {
         let size: i16 = self.decode()?;
-        if size <= 0 {
+        if size < 0 {
             return Err(PhotonDecodeError::from(
                 "Failed to decode HashMap<u8, Value>, unreasonable size",
             ));
@@ -232,7 +232,7 @@ impl Decode<OperationRequest> for PhotonCursor<'_> {
 impl Decode<Vec<Box<Value>>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<Box<Value>>> {
         let size: i16 = self.decode()?;
-        if size <= 0 {
+        if size < 0 {
             return Err(PhotonDecodeError::from(
                 "Failed to decode Vec<Box<Value>>, unreasonable size",
             ));
@@ -253,7 +253,7 @@ impl Decode<Vec<Box<Value>>> for PhotonCursor<'_> {
 impl Decode<Vec<bool>> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<Vec<bool>> {
         let size: i16 = self.decode()?;
-        if size <= 0 {
+        if size < 0 {
             return Err(PhotonDecodeError::from(
                 "Failed to decode Vec<bool>, unreasonable size",
             ));
