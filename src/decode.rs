@@ -157,7 +157,9 @@ impl Decode<HashMap<String, Value>> for PhotonCursor<'_> {
                 value_type_code
             };
             let val = self.typed_decode(value_code);
-            value.insert(format!("{}", key.unwrap()), val.unwrap());
+            if let (Ok(key), Ok(val)) = (key, val) {
+                value.insert(format!("{}", key), val);
+            }
         }
 
         Ok(value)
@@ -244,7 +246,9 @@ impl Decode<Vec<Box<Value>>> for PhotonCursor<'_> {
             } else {
                 break;
             };
-            value.push(Box::new(self.typed_decode(type_code).unwrap()));
+            if let Ok(val) = self.typed_decode(type_code) {
+                value.push(Box::new(val));
+            }
         }
         Ok(value)
     }
@@ -328,7 +332,8 @@ impl Decode<ReliableCommand> for PhotonCursor<'_> {
         let reserved_byte = self.decode()?;
         let length: u32 = self.decode()?;
         let reliable_sequence_number = self.decode()?;
-        let msg_len = length - size_of::<ReliableCommand>() as u32;
+        let msg_len = length.checked_sub(size_of::<ReliableCommand>() as u32)
+            .map_or(Err(PhotonDecodeError::from("Invalid ReliableCommand length")), |v| Ok(v))?;
         Ok(ReliableCommand {
             channel_id,
             flags,
@@ -343,7 +348,8 @@ impl Decode<UnreliableCommand> for PhotonCursor<'_> {
     fn decode(&mut self) -> PhotonDecodeResult<UnreliableCommand> {
         let mut reliable_command: ReliableCommand = self.decode()?;
         let unknown = self.decode()?;
-        reliable_command.msg_len = reliable_command.msg_len - size_of::<u32>() as u32;
+        reliable_command.msg_len = reliable_command.msg_len.checked_sub(size_of::<u32>() as u32)
+            .map_or(Err(PhotonDecodeError::from("Invalid UnreliableCommand length")), |v| Ok(v))?;
         Ok(UnreliableCommand {
             reliable_command,
             unknown,
@@ -360,9 +366,11 @@ impl Decode<ReliableFragment> for PhotonCursor<'_> {
         let total_length = self.decode()?;
         let operation_length = self.decode()?;
 
-        reliable_command.msg_len = reliable_command.msg_len - (size_of::<u32>() * 5) as u32;
+        reliable_command.msg_len = reliable_command.msg_len.checked_sub((size_of::<u32>() * 5) as u32)
+            .map_or(Err(PhotonDecodeError::from("Invalid ReliableFragment length")), |v| Ok(v))?;
         let mut payload = vec![0u8; reliable_command.msg_len as usize];
-        self.read_exact(&mut payload).unwrap();
+        self.read_exact(&mut payload)
+            .map_err(|e| PhotonDecodeError::from(format!("{}", e)))?;
 
         Ok(ReliableFragment {
             reliable_command,
